@@ -6,38 +6,30 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import 'src/core/theme/app_theme.dart';
 import 'src/data/local/favorites_repository.dart';
-import 'src/data/local/settings_repository.dart';
-import 'src/presentation/providers/theme_controller.dart';
-import 'src/presentation/screens/home_shell.dart';
+import 'src/presentation/screens/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env', isOptional: true);
   await Hive.initFlutter();
-  await Future.wait([
-    Hive.openBox<String>(FavoritesRepository.boxName),
-    Hive.openBox<String>(SettingsRepository.boxName),
-  ]);
+  await Hive.openBox<String>(FavoritesRepository.boxName);
 
   runApp(const ProviderScope(child: PixelVaultApp()));
 }
 
-class PixelVaultApp extends ConsumerWidget {
+class PixelVaultApp extends StatelessWidget {
   const PixelVaultApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeControllerProvider);
-
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Pixel Vault',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      themeMode: themeMode,
+      themeMode: ThemeMode.light,
       // Coordinates Liquid Glass tab bar z-order with sheets/modals.
       navigatorObservers: [CNTabBarRouteObserver()],
-      home: const HomeShell(),
+      home: const SplashScreen(),
     );
   }
 }

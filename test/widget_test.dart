@@ -5,7 +5,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pixel_vault/src/core/theme/app_theme.dart';
 import 'package:pixel_vault/src/data/local/favorites_repository.dart';
-import 'package:pixel_vault/src/data/local/settings_repository.dart';
 import 'package:pixel_vault/src/data/models/pixabay_image.dart';
 import 'package:pixel_vault/src/data/repositories/image_repository.dart';
 import 'package:pixel_vault/src/presentation/providers/providers.dart';
@@ -16,7 +15,6 @@ class _MockRepo extends Mock implements ImageRepository {}
 void main() {
   late _MockRepo repo;
   late Box<String> favoritesBox;
-  late Box<String> settingsBox;
 
   setUpAll(() async {
     Hive.init('./.hive_test_widget');
@@ -26,9 +24,6 @@ void main() {
     repo = _MockRepo();
     favoritesBox = await Hive.openBox<String>(
       'fav_${DateTime.now().microsecondsSinceEpoch}',
-    );
-    settingsBox = await Hive.openBox<String>(
-      'set_${DateTime.now().microsecondsSinceEpoch}',
     );
 
     when(() => repo.fetchImages(
@@ -62,9 +57,7 @@ void main() {
 
   tearDown(() async {
     await favoritesBox.clear();
-    await settingsBox.clear();
     await favoritesBox.close();
-    await settingsBox.close();
   });
 
   testWidgets('HomeShell shows Explore mockup destinations', (tester) async {
@@ -86,9 +79,6 @@ void main() {
           imageRepositoryProvider.overrideWithValue(repo),
           favoritesRepositoryProvider.overrideWithValue(
             FavoritesRepository(favoritesBox),
-          ),
-          settingsRepositoryProvider.overrideWithValue(
-            SettingsRepository(settingsBox),
           ),
         ],
         child: MaterialApp(

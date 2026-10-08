@@ -1,9 +1,11 @@
 import 'package:cupertino_native_better/cupertino_native_better.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../providers/providers.dart';
 import '../widgets/android_floating_tab_bar.dart';
 import 'favorites_screen.dart';
 import 'gallery_screen.dart';
@@ -19,13 +21,20 @@ class HomeShell extends ConsumerStatefulWidget {
 }
 
 class _HomeShellState extends ConsumerState<HomeShell> {
-  int _index = 0;
-
   /// Fresh key each time the native bar is allowed to mount (avoids stale
   /// UiKitView + Flutter fallback stacking after hot restart).
   Key _tabBarKey = UniqueKey();
 
-  void _openProfile() => setState(() => _index = 3);
+  DateTime? _lastBackAt;
+
+  int get _index => ref.watch(shellTabIndexProvider);
+
+  void _setIndex(int i) {
+    _lastBackAt = null;
+    ref.read(shellTabIndexProvider.notifier).state = i;
+  }
+
+  void _openProfile() => _setIndex(3);
 
   bool get _useNativeTabs =>
       !kIsWeb &&
@@ -55,17 +64,57 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     super.dispose();
   }
 
+  Future<void> _handleRootBack() async {
+    // Only dismiss the soft keyboard — don't treat random focus as "back used".
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    if (keyboardOpen) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      return;
+    }
+
+    final tab = ref.read(shellTabIndexProvider);
+
+    // Other tabs → Explore. Never re-navigate when already on Explore.
+    if (tab != 0) {
+      _setIndex(0);
+      return;
+    }
+
+    // Explore: double-back within 2s exits via SystemNavigator (do NOT pop the
+    // root route — that leaves a black screen instead of closing the app).
+    final now = DateTime.now();
+    if (_lastBackAt != null &&
+        now.difference(_lastBackAt!) < const Duration(seconds: 2)) {
+      _lastBackAt = null;
+      await SystemNavigator.pop();
+      return;
+    }
+
+    _lastBackAt = now;
+    if (!mounted) return;
+    // Use ScaffoldMessenger — CNToast overlays can interfere with back handling.
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Press back again to exit'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Only the visible tab may register Heroes — IndexedStack keeps all tabs
-    // mounted, so identical image tags would otherwise collide on navigation.
+    final index = _index;
+
     final pages = [
       for (var i = 0; i < 4; i++)
         HeroMode(
-          enabled: _index == i,
+          enabled: index == i,
           child: switch (i) {
             0 => GalleryScreen(onOpenProfile: _openProfile),
-            1 => SearchScreen(isActive: _index == 1),
+            1 => SearchScreen(isActive: index == 1),
             2 => const FavoritesScreen(),
             _ => const ProfileScreen(),
           },
@@ -74,42 +123,54 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
 
-    return Scaffold(
-      extendBody: true,
-      // Android: keep floating tabs off the keyboard. iOS: allow inset normally.
-      resizeToAvoidBottomInset: _useNativeTabs,
-      body: Stack(
-        children: [
-          SafeArea(
-            bottom: false,
-            child: IndexedStack(index: _index, children: pages),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _useNativeTabs
-                ? _buildAppleTabBar()
-                : IgnorePointer(
-                    ignoring: keyboardOpen,
-                    child: AnimatedOpacity(
-                      opacity: keyboardOpen ? 0 : 1,
-                      duration: const Duration(milliseconds: 180),
-                      child: AndroidFloatingTabBar(
-                        currentIndex: _index,
-                        onTap: (i) => setState(() => _index = i),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: PopScope(
+        // Always false on the root route. Exit with SystemNavigator.pop().
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          _handleRootBack();
+        },
+        child: Scaffold(
+          extendBody: true,
+          resizeToAvoidBottomInset: _useNativeTabs,
+          body: Stack(
+            children: [
+              SafeArea(
+                bottom: false,
+                child: IndexedStack(index: index, children: pages),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _useNativeTabs
+                    ? _buildAppleTabBar(index)
+                    : IgnorePointer(
+                        ignoring: keyboardOpen,
+                        child: AnimatedOpacity(
+                          opacity: keyboardOpen ? 0 : 1,
+                          duration: const Duration(milliseconds: 180),
+                          child: AndroidFloatingTabBar(
+                            currentIndex: index,
+                            onTap: _setIndex,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildAppleTabBar() {
-    // During the debug hot-restart guard window, skip mounting CNTabBar so we
-    // don't flash CupertinoTabBar under a leftover native Liquid Glass bar.
+  Widget _buildAppleTabBar(int index) {
     if (PlatformVersion.shouldUseNativeGlass && !_nativeGlassReady) {
       PlatformViewGuard.ensureScheduled();
       return const SizedBox(height: 50);
@@ -146,8 +207,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           activeCustomIcon: Icons.person_rounded,
         ),
       ],
-      currentIndex: _index,
-      onTap: (i) => setState(() => _index = i),
+      currentIndex: index,
+      onTap: _setIndex,
       tint: AppColors.brand,
     );
   }

@@ -2,6 +2,33 @@
 
 A production-style Flutter image gallery that consumes the [Pixabay API](https://pixabay.com/api/docs/), supports infinite scrolling, image detail, downloads, and local favorites.
 
+## Screenshots
+
+### Android (Pixel 6)
+
+<p align="center">
+  <img src="docs/screenshots/android_explore.png" width="220" alt="Android Explore" />
+  <img src="docs/screenshots/android_search.png" width="220" alt="Android Search" />
+  <img src="docs/screenshots/android_favorites.png" width="220" alt="Android Favorites" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/android_detail.png" width="220" alt="Android Image detail" />
+  <img src="docs/screenshots/android_profile.png" width="220" alt="Android Profile" />
+</p>
+
+| Explore | Search | Favorites | Detail | Profile |
+|:-------:|:------:|:---------:|:------:|:-------:|
+| Masonry grid + category chips | Empty state until you type | Saved photos | Sheet with tags & download | Guest + about |
+
+### iOS (iPhone 17 Simulator)
+
+<p align="center">
+  <img src="docs/screenshots/ios_explore.png" width="240" alt="iOS Explore" />
+  <img src="docs/screenshots/ios_search.png" width="240" alt="iOS Search" />
+</p>
+
+Liquid Glass tab bar, Explore masonry gallery, and Search empty state.
+
 ## Features
 
 ### Core
@@ -20,9 +47,10 @@ A production-style Flutter image gallery that consumes the [Pixabay API](https:/
 - Category filters
 - Masonry grid (`flutter_staggered_grid_view`)
 - Hero animations between grid and detail
-- Light / dark / system themes (persisted)
+- Light theme
 - Share sheet
 - Download progress indicator
+- Animated splash screen
 - Unit + widget tests
 
 ## Architecture
@@ -35,15 +63,15 @@ lib/
     data/
       models/       # PixabayImage, ImagePage
       repositories/ # remote ImageRepository (Dio)
-      local/        # FavoritesRepository, SettingsRepository (Hive)
+      local/        # FavoritesRepository (Hive)
     services/       # DownloadService (gal + share_plus)
     presentation/
       providers/    # Riverpod controllers
-      screens/      # Gallery, Detail, Favorites, HomeShell
+      screens/      # Gallery, Detail, Favorites, HomeShell, Splash
       widgets/      # grid, tiles, shimmer, chips, error views
 ```
 
-**State management:** [Riverpod](https://riverpod.dev/) (`StateNotifier` for gallery, favorites, theme).
+**State management:** [Riverpod](https://riverpod.dev/) (`StateNotifier` for gallery and favorites).
 
 **Separation of concerns:** UI → providers → repositories/services → Dio / Hive / Gal.
 
@@ -75,7 +103,6 @@ flutter run
 
 `.env` is gitignored. Do not commit real keys.
 
-
 ### Platform permissions
 
 | Platform | Permission | Purpose |
@@ -98,12 +125,12 @@ Coverage includes:
 - Error / empty widgets
 - Home shell navigation (with mocked repository)
 
-## Screenshots / UX notes
+## UX notes
 
 - First paint uses a shimmer masonry placeholder
 - Pull down on the gallery to refresh
 - Heart icon on a tile (or in detail) toggles favorites
-- Theme cycles: system → light → dark via the AppBar icon
+- On Android Explore, press back twice within 2s to exit
 
 ## License note
 

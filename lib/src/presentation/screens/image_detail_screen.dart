@@ -9,6 +9,15 @@ import '../providers/favorites_controller.dart';
 import '../providers/providers.dart';
 import '../widgets/app_toast.dart';
 
+/// Pops to the root shell and selects the Explore tab.
+void _navigateHome(WidgetRef ref, BuildContext context) {
+  ref.read(shellTabIndexProvider.notifier).state = 0;
+  final nav = Navigator.of(context);
+  if (nav.canPop()) {
+    nav.popUntil((route) => route.isFirst);
+  }
+}
+
 class ImageDetailScreen extends ConsumerStatefulWidget {
   const ImageDetailScreen({super.key, required this.image});
 
@@ -95,58 +104,65 @@ class _ImageDetailScreenState extends ConsumerState<ImageDetailScreen> {
     final tags = image.tagList;
     final visibleTags = _showAllTags ? tags : tags.take(12).toList();
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Photo plane — tap opens fullscreen
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: MediaQuery.sizeOf(context).height * 0.55,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _openFullscreen,
-              child: Hero(
-                tag: 'image-${image.id}',
-                child: CachedNetworkImage(
-                  imageUrl: image.largeImageUrl,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
-                  memCacheWidth: 1400,
-                  placeholder: (context, url) => CachedNetworkImage(
-                    imageUrl: image.webformatUrl,
+    return PopScope(
+      // Let the system back gesture complete, then route to Explore.
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) return;
+        ref.read(shellTabIndexProvider.notifier).state = 0;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Photo plane — tap opens fullscreen
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: MediaQuery.sizeOf(context).height * 0.55,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _openFullscreen,
+                child: Hero(
+                  tag: 'image-${image.id}',
+                  child: CachedNetworkImage(
+                    imageUrl: image.largeImageUrl,
                     fit: BoxFit.cover,
-                  ),
-                  errorWidget: (context, url, error) => const ColoredBox(
-                    color: Color(0xFF1A1A1A),
-                    child: Center(
-                      child: Icon(
-                        Icons.broken_image_outlined,
-                        color: Colors.white54,
-                        size: 48,
+                    width: double.infinity,
+                    height: double.infinity,
+                    memCacheWidth: 1400,
+                    placeholder: (context, url) => CachedNetworkImage(
+                      imageUrl: image.webformatUrl,
+                      fit: BoxFit.cover,
+                    ),
+                    errorWidget: (context, url, error) => const ColoredBox(
+                      color: Color(0xFF1A1A1A),
+                      child: Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          color: Colors.white54,
+                          size: 48,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
 
-          // Top chrome
-          Positioned(
-            top: topPad + 8,
-            left: 16,
-            right: 16,
-            child: Row(
-              children: [
-                _GlassCircleButton(
-                  icon: Icons.arrow_back_rounded,
-                  onTap: () => Navigator.of(context).maybePop(),
-                ),
+            // Top chrome
+            Positioned(
+              top: topPad + 8,
+              left: 16,
+              right: 16,
+              child: Row(
+                children: [
+                  _GlassCircleButton(
+                    icon: Icons.arrow_back_rounded,
+                    onTap: () => _navigateHome(ref, context),
+                  ),
                 const Spacer(),
                 _GlassCircleButton(
                   icon: isFavorite
@@ -430,6 +446,7 @@ class _ImageDetailScreenState extends ConsumerState<ImageDetailScreen> {
             },
           ),
         ],
+        ),
       ),
     );
   }
